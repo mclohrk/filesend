@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>fileSend · mclohrk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="filesend-style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">🌙</button>
+  <div class="header-brand">
+    <span class="header-arrows">⇌</span>
+    <span class="header-title">fileSend</span>
+    <span class="header-beta">beta</span>
+  </div>
+  <div class="header-sub">🚩 mclohrk · <a href="https://mclohrk.xyz" target="_blank">mclohrk.xyz</a></div>
+  <p class="header-desc">
+    Durante um pentest, precisamos constantemente transferir arquivos para a máquina alvo (binários, scripts, exploits) e também exfiltrar dados de interesse. Montar esses comandos repetidamente consome tempo. O <strong>fileSend</strong> automatiza essa montagem: preencha os dados uma vez e os comandos prontos aparecem para colar direto na shell do alvo. Suporte a envio e exfiltração para alvos <strong>Linux</strong> e <strong>Windows</strong>, com múltiplos métodos de transferência.
+  </p>
+</header>
+
+<div class="beta-bar">
+  <span class="beta-bar-icon">⚠️</span>
+  <span>Versão <strong>beta</strong> — pode conter erros ou comandos incompletos. Teste antes de usar em campo.</span>
+  <span class="beta-bar-sep">·</span>
+  <a href="https://github.com/mclohrk/filesend" target="_blank" class="beta-bar-link">🤝 Contribua no GitHub</a>
+</div>
+
+<div class="tutorial">
+  <div class="tutorial-inner">
+    <div class="tut-title">Como usar</div>
+    <div class="tut-steps">
+      <div class="tut-step">
+        <div class="tut-num">1</div>
+        <div class="tut-text">Preencha os campos abaixo com <strong>seu IP</strong>, a <strong>porta</strong> que vai usar e o <strong>caminho do arquivo</strong> que quer enviar.</div>
+      </div>
+      <div class="tut-step">
+        <div class="tut-num">2</div>
+        <div class="tut-text">Escolha a aba do <strong>sistema alvo</strong> (Linux ou Windows) e selecione o método de envio.</div>
+      </div>
+      <div class="tut-step">
+        <div class="tut-num">3</div>
+        <div class="tut-text">Bloco <span class="badge-kali">🖥 ATACANTE</span> rode na sua máquina. Bloco <span class="badge-target">🎯 ALVO</span> cole na shell do servidor que está atacando.</div>
+      </div>
+      <div class="tut-step">
+        <div class="tut-num">4</div>
+        <div class="tut-text">Clique em <strong>copy</strong> em qualquer bloco para copiar o comando pronto para o clipboard. Use <strong>⬇ Exportar PDF</strong> para baixar todos os comandos gerados em PDF.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="inputs-bar">
+  <div class="field">
+    <label>Seu IP (obrigatório)</label>
+    <input type="text" id="inp-ip" placeholder="192.168.1.10">
+  </div>
+  <div class="field">
+    <label>IP do alvo (obrigatório)</label>
+    <input type="text" id="inp-target-ip" placeholder="10.10.10.5">
+  </div>
+  <div class="field" style="max-width:120px">
+    <label>Porta HTTP</label>
+    <input type="text" id="inp-port" placeholder="8000" value="8000">
+  </div>
+  <div class="field" style="max-width:120px">
+  <label>Porta Netcat</label>
+  <input type="text" id="inp-nc-port" placeholder="9000" value="9000">
+</div>
+  <div class="field">
+    <label>Caminho completo do arquivo (obrigatório)</label>
+    <input type="text" id="inp-file" placeholder="/home/kali/tools/nc">
+  </div>
+  <div class="field" style="max-width:180px">
+    <label>Destino Linux (caso seja Linux)</label>
+    <input type="text" id="inp-dest-linux" placeholder="/tmp/">
+  </div>
+  <div class="field" style="max-width:220px">
+    <label>Destino Windows (caso seja Windows)</label>
+    <input type="text" id="inp-dest-windows" placeholder="C:\Windows\Temp\">
+  </div>
+  <div class="field" style="max-width:140px">
+    <label>Usuário SSH (caso seja via SSH)</label>
+    <input type="text" id="inp-ssh-user" placeholder="root">
+  </div>
+  <div class="field" style="max-width:100px">
+    <label>Porta SSH (caso seja via SSH)</label>
+    <input type="text" id="inp-ssh-port" placeholder="22" value="22">
+  </div>
+  <button class="btn-example" onclick="fillExample()">⚡ Preencher exemplo</button>
+</div>
+
+<div class="tabs-wrap">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('linux', this)"><span class="os-icon">🐧</span>Linux</button>
+    <button class="tab-btn" onclick="switchTab('windows', this)"><span class="os-icon">🪟</span>Windows</button>
+    <button class="tab-btn" onclick="switchTab('exfil', this)"><span class="os-icon">📤</span>Exfiltrar</button>
+    <button class="btn-pdf" onclick="downloadPDF()" title="Exportar comandos atuais como PDF">⬇ Exportar PDF</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- ═══ LINUX ═══ -->
+  <div class="tab-panel active" id="panel-linux">
+
+    <div class="method-card">
+      <div class="method-head">
+        <div class="method-num">1</div>
+        <div class="method-name">Python HTTP Server + wget / curl</div>
+      </div>
+      <div class="cmd-blocks">
+        <div class="cmd-block kali">
+          <div class="cmd-label kali"><span class="side">🖥 ATACANTE (você)</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="l1-kali"></pre>
+            <button class="copy-btn" onclick="copyCmd('l1-kali', this)">copy</button>
+          </div>
+        </div>
+        <div class="cmd-block target">
+          <div class="cmd-label target"><span class="side">🎯 ALVO: wget</span></div>
+          <div class="cmd-box" style="margin-bottom:6px">
+            <pre class="cmd-text" id="l1-target-wget"></pre>
+            <button class="copy-btn" onclick="copyCmd('l1-target-wget', this)">copy</button>
+          </div>
+          <div class="cmd-label target" style="margin-top:8px"><span class="side">🎯 ALVO: curl</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="l1-target-curl"></pre>
+            <button class="copy-btn" onclick="copyCmd('l1-target-curl', this)">copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="method-note"><strong>Quando usar:</strong> cenário padrão. wget e curl estão em 99% dos Linux.</div>
+    </div>
+
+    <div class="method-card">
+      <div class="method-head">
+        <div class="method-num">2</div>
+        <div class="method-name">Python HTTP Server + python3 puro</div>
+        <div class="method-badge">sem wget/curl</div>
+      </div>
+      <div class="cmd-blocks">
+        <div class="cmd-block kali">
+          <div class="cmd-label kali"><span class="side">🖥 ATACANTE (você)</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="l2-kali"></pre>
+            <button class="copy-btn" onclick="copyCmd('l2-kali', this)">copy</button>
+          </div>
+        </div>
+        <div class="cmd-block target">
+          <div class="cmd-label target"><span class="side">🎯 ALVO (cole na shell)</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="l2-target"></pre>
+            <button class="copy-btn" onclick="copyCmd('l2-target', this)">copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="method-note"><strong>Quando usar:</strong> alvo sem wget/curl mas tem Python instalado.</div>
+    </div>
+
+    <div class="method-card">
+      <div class="method-head">
+        <div class="method-num">3</div>
+        <div class="method-name">Netcat (push direto)</div>
+        <div class="method-badge">sem HTTP</div>
+      </div>
+      <div class="cmd-blocks">
+        <div class="cmd-block kali">
+          <div class="cmd-label kali"><span class="side">🖥 ATACANTE: rode depois que o alvo escutar</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="l3-kali"></pre>
+            <button class="copy-btn" onclick="copyCmd('l3-kali', this)">copy</button>
+          </div>
+        </div>
+        <div class="cmd-block target">
+          <div class="cmd-label target"><span class="side">🎯 ALVO: rode primeiro</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="l3-target"></pre>
+            <button class="copy-btn" onclick="copyCmd('l3-target', this)">copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="method-note"><strong>Ordem importa:</strong> primeiro rode o listener no alvo, depois envie do Kali.</div>
+    </div>
+
+    <div class="method-card">
+      <div class="method-head">
+        <div class="method-num">4</div>
+        <div class="method-name">SCP via SSH</div>
+        <div class="method-badge">credencial SSH</div>
+      </div>
+      <div class="cmd-blocks">
+        <div class="cmd-block kali">
+          <div class="cmd-label kali"><span class="side">🖥 ATACANTE: envia direto, nada a rodar no alvo</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="l4-kali"></pre>
+            <button class="copy-btn" onclick="copyCmd('l4-kali', this)">copy</button>
+          </div>
+        </div>
+        <div class="cmd-block target">
+          <div class="cmd-label target"><span class="side">🎯 ALVO: nada a fazer</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="l4-target">push direto via SSH, arquivo chega automaticamente</pre>
+          </div>
+        </div>
+      </div>
+      <div class="method-note"><strong>Quando usar:</strong> você tem usuário e senha ou chave SSH no alvo.</div>
+    </div>
+
+  </div><!-- /linux -->
+
+  <!-- ═══ WINDOWS ═══ -->
+  <div class="tab-panel" id="panel-windows">
+
+    <div class="method-card">
+      <div class="method-head">
+        <div class="method-num">1</div>
+        <div class="method-name">Python HTTP + PowerShell (iwr)</div>
+        <div class="method-badge">mais comum</div>
+      </div>
+      <div class="cmd-blocks">
+        <div class="cmd-block kali">
+          <div class="cmd-label kali"><span class="side">🖥 ATACANTE (você)</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="w1-kali"></pre>
+            <button class="copy-btn" onclick="copyCmd('w1-kali', this)">copy</button>
+          </div>
+        </div>
+        <div class="cmd-block target">
+          <div class="cmd-label target"><span class="side">🎯 ALVO: iwr</span></div>
+          <div class="cmd-box" style="margin-bottom:6px">
+            <pre class="cmd-text" id="w1-target-iwr"></pre>
+            <button class="copy-btn" onclick="copyCmd('w1-target-iwr', this)">copy</button>
+          </div>
+          <div class="cmd-label target" style="margin-top:8px"><span class="side">🎯 ALVO: Net.WebClient</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="w1-target-webclient"></pre>
+            <button class="copy-btn" onclick="copyCmd('w1-target-webclient', this)">copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="method-note"><strong>Quando usar:</strong> acesso PowerShell no alvo. Windows 7+.</div>
+    </div>
+
+    <div class="method-card">
+      <div class="method-head">
+        <div class="method-num">2</div>
+        <div class="method-name">SMB via Impacket</div>
+        <div class="method-badge">nativo Windows</div>
+      </div>
+      <div class="cmd-blocks">
+        <div class="cmd-block kali">
+          <div class="cmd-label kali"><span class="side">🖥 ATACANTE (você)</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="w2-kali"></pre>
+            <button class="copy-btn" onclick="copyCmd('w2-kali', this)">copy</button>
+          </div>
+        </div>
+        <div class="cmd-block target">
+          <div class="cmd-label target"><span class="side">🎯 ALVO: CMD nativo, sem instalar nada</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="w2-target"></pre>
+            <button class="copy-btn" onclick="copyCmd('w2-target', this)">copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="method-note"><strong>Mais furtivo:</strong> Windows acessa SMB nativamente via Explorer ou CMD sem nenhum software extra.</div>
+    </div>
+
+    <div class="method-card">
+      <div class="method-head">
+        <div class="method-num">3</div>
+        <div class="method-name">Python HTTP + certutil</div>
+        <div class="method-badge">CMD puro</div>
+      </div>
+      <div class="cmd-blocks">
+        <div class="cmd-block kali">
+          <div class="cmd-label kali"><span class="side">🖥 ATACANTE (você)</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="w3-kali"></pre>
+            <button class="copy-btn" onclick="copyCmd('w3-kali', this)">copy</button>
+          </div>
+        </div>
+        <div class="cmd-block target">
+          <div class="cmd-label target"><span class="side">🎯 ALVO: CMD sem PowerShell</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="w3-target"></pre>
+            <button class="copy-btn" onclick="copyCmd('w3-target', this)">copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="method-note"><strong>Atenção:</strong> certutil deixa rastro em cache. Limpe depois: <code>certutil -urlcache -split -f http://<span class="dyn-ip"></span>:<span class="dyn-port"></span>/<span class="dyn-file"></span> delete</code></div>
+    </div>
+
+    <div class="method-card">
+      <div class="method-head">
+        <div class="method-num">4</div>
+        <div class="method-name">Python HTTP + bitsadmin</div>
+        <div class="method-badge">background</div>
+      </div>
+      <div class="cmd-blocks">
+        <div class="cmd-block kali">
+          <div class="cmd-label kali"><span class="side">🖥 ATACANTE (você)</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="w4-kali"></pre>
+            <button class="copy-btn" onclick="copyCmd('w4-kali', this)">copy</button>
+          </div>
+        </div>
+        <div class="cmd-block target">
+          <div class="cmd-label target"><span class="side">🎯 ALVO: CMD (Windows XP+)</span></div>
+          <div class="cmd-box">
+            <pre class="cmd-text" id="w4-target"></pre>
+            <button class="copy-btn" onclick="copyCmd('w4-target', this)">copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="method-note"><strong>Quando usar:</strong> download em background. Pode ser bloqueado por GPO em ambientes corporativos.</div>
+    </div>
+
+  </div><!-- /windows -->
+
+  <!-- ═══ EXFILTRAÇÃO ═══ -->
+  <div class="tab-panel" id="panel-exfil">
+
+    <!-- Inputs específicos de exfil -->
+    <div class="exfil-inputs">
+      <div class="field">
+        <label>Seu IP atacante (onde receber)</label>
+        <input type="text" id="inp-exfil-attacker-ip" placeholder="172.16.0.5">
+      </div>
+      <div class="field" style="max-width:140px">
+  <label>Porta de exfiltração</label>
+  <input type="text" id="inp-exfil-port" placeholder="9001" value="9001">
+</div>
+      <div class="field">
+        <label>Arquivo no alvo (caminho completo a exfiltrar)</label>
+        <input type="text" id="inp-exfil-file" placeholder="/etc/passwd ou C:\Users\user\flag.txt">
+      </div>
+      <div class="field" style="max-width:220px">
+        <label>Destino no atacante (onde salvar)</label>
+        <input type="text" id="inp-exfil-dest" placeholder="/tmp/exfil/">
+      </div>
+    </div>
+
+    <!-- Sub-abas Linux / Windows -->
+    <div class="subtabs">
+      <button class="subtab-btn active" onclick="switchSubTab('exfil-linux', this)"><span class="os-icon">🐧</span>Linux</button>
+      <button class="subtab-btn" onclick="switchSubTab('exfil-windows', this)"><span class="os-icon">🪟</span>Windows</button>
+    </div>
+
+    <!-- Exfil Linux -->
+    <div class="subtab-panel active" id="panel-exfil-linux">
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-num">1</div>
+          <div class="method-name">Netcat: alvo envia, atacante recebe</div>
+          <div class="method-badge">mais simples</div>
+        </div>
+        <div class="cmd-blocks">
+          <div class="cmd-block kali">
+            <div class="cmd-label kali"><span class="side">🖥 ATACANTE: rode primeiro</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-l1-kali"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-l1-kali', this)">copy</button>
+            </div>
+          </div>
+          <div class="cmd-block target">
+            <div class="cmd-label target"><span class="side">🎯 ALVO: rode depois</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-l1-target"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-l1-target', this)">copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="method-note"><strong>Ordem importa:</strong> listener no atacante primeiro, depois o alvo envia.</div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-num">2</div>
+          <div class="method-name">curl POST: upload para servidor do atacante</div>
+          <div class="method-badge">HTTP</div>
+        </div>
+        <div class="cmd-blocks">
+          <div class="cmd-block kali">
+            <div class="cmd-label kali"><span class="side">🖥 ATACANTE: servidor de upload</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-l2-kali"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-l2-kali', this)">copy</button>
+            </div>
+          </div>
+          <div class="cmd-block target">
+            <div class="cmd-label target"><span class="side">🎯 ALVO: envia o arquivo</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-l2-target"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-l2-target', this)">copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="method-note"><strong>Requer:</strong> <code>pip install uploadserver</code> no Kali. Arquivo chega em <code>/tmp/exfil/</code>.</div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-num">3</div>
+          <div class="method-name">Base64: encode no alvo, decode no atacante</div>
+          <div class="method-badge">sem rede direta</div>
+        </div>
+        <div class="cmd-blocks">
+          <div class="cmd-block kali">
+            <div class="cmd-label kali"><span class="side">🖥 ATACANTE: decodifica após colar</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-l3-kali"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-l3-kali', this)">copy</button>
+            </div>
+          </div>
+          <div class="cmd-block target">
+            <div class="cmd-label target"><span class="side">🎯 ALVO: encode e exibe para copiar</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-l3-target"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-l3-target', this)">copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="method-note"><strong>Quando usar:</strong> sem rota de rede direta. Só com acesso à shell reversa. Copie a saída base64 e decodifique no Kali.</div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-num">4</div>
+          <div class="method-name">SMB: alvo copia para share do atacante</div>
+          <div class="method-badge">Impacket</div>
+        </div>
+        <div class="cmd-blocks">
+          <div class="cmd-block kali">
+            <div class="cmd-label kali"><span class="side">🖥 ATACANTE: sobe o share</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-l4-kali"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-l4-kali', this)">copy</button>
+            </div>
+          </div>
+          <div class="cmd-block target">
+            <div class="cmd-label target"><span class="side">🎯 ALVO: copia para o share</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-l4-target"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-l4-target', this)">copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="method-note"><strong>Requer:</strong> Impacket no Kali. O arquivo chega direto na pasta configurada.</div>
+      </div>
+
+    </div><!-- /exfil-linux -->
+
+    <!-- Exfil Windows -->
+    <div class="subtab-panel" id="panel-exfil-windows">
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-num">1</div>
+          <div class="method-name">SMB: copy para share do atacante</div>
+          <div class="method-badge">mais simples</div>
+        </div>
+        <div class="cmd-blocks">
+          <div class="cmd-block kali">
+            <div class="cmd-label kali"><span class="side">🖥 ATACANTE: sobe o share</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-w1-kali"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-w1-kali', this)">copy</button>
+            </div>
+          </div>
+          <div class="cmd-block target">
+            <div class="cmd-label target"><span class="side">🎯 ALVO: CMD nativo</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-w1-target"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-w1-target', this)">copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="method-note"><strong>Mais furtivo:</strong> usa protocolo nativo do Windows, sem instalar nada no alvo.</div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-num">2</div>
+          <div class="method-name">PowerShell: Invoke-WebRequest POST</div>
+          <div class="method-badge">HTTP</div>
+        </div>
+        <div class="cmd-blocks">
+          <div class="cmd-block kali">
+            <div class="cmd-label kali"><span class="side">🖥 ATACANTE: servidor de upload</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-w2-kali"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-w2-kali', this)">copy</button>
+            </div>
+          </div>
+          <div class="cmd-block target">
+            <div class="cmd-label target"><span class="side">🎯 ALVO: PowerShell</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-w2-target"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-w2-target', this)">copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="method-note"><strong>Requer:</strong> <code>pip install uploadserver</code> no Kali.</div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-num">3</div>
+          <div class="method-name">certutil: base64 encode no alvo</div>
+          <div class="method-badge">CMD puro</div>
+        </div>
+        <div class="cmd-blocks">
+          <div class="cmd-block kali">
+            <div class="cmd-label kali"><span class="side">🖥 ATACANTE: decodifica após colar</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-w3-kali"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-w3-kali', this)">copy</button>
+            </div>
+          </div>
+          <div class="cmd-block target">
+            <div class="cmd-label target"><span class="side">🎯 ALVO: CMD sem PowerShell</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-w3-target"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-w3-target', this)">copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="method-note"><strong>Quando usar:</strong> sem rota de rede direta ou só CMD disponível.</div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-num">4</div>
+          <div class="method-name">Netcat: alvo envia, atacante recebe</div>
+          <div class="method-badge">nc no alvo</div>
+        </div>
+        <div class="cmd-blocks">
+          <div class="cmd-block kali">
+            <div class="cmd-label kali"><span class="side">🖥 ATACANTE: rode primeiro</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-w4-kali"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-w4-kali', this)">copy</button>
+            </div>
+          </div>
+          <div class="cmd-block target">
+            <div class="cmd-label target"><span class="side">🎯 ALVO: CMD (nc instalado)</span></div>
+            <div class="cmd-box">
+              <pre class="cmd-text" id="ex-w4-target"></pre>
+              <button class="copy-btn" onclick="copyCmd('ex-w4-target', this)">copy</button>
+            </div>
+          </div>
+        </div>
+        <div class="method-note"><strong>Requer:</strong> nc.exe no alvo Windows. Pode ser enviado previamente pelo fileSend.</div>
+      </div>
+
+    </div><!-- /exfil-windows -->
+
+  </div><!-- /exfil -->
+
+</div><!-- /content -->
+
+<script src="filesend-app.js"></script>
+</body>
+</html>
